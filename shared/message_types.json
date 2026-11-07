@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+
+  "client_to_server": {
+    "JOINT_STATE": "JOINT_STATE",
+    "GRIPPER_POSE": "GRIPPER_POSE",
+    "CONFIG": "CONFIG",
+    "IK_TARGET": "IK_TARGET",
+    "SOLVE_IK_BUTTON": "SOLVE_IK_BUTTON"
+  },
+
+  "server_to_client": {
+    "HEARTBEAT": "HEARTBEAT",
+    "SET_JOINTS": "SET_JOINTS"
+  }
+}

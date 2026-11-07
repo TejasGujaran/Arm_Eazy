@@ -1,0 +1,32 @@
+<Transform id="BaseTransform" DEF="BaseTransform"
+              translation="0 0 0" rotation="0 0 0 0">
+              <Inline url='"Arm_Base.x3d"'></Inline>
+
+
+       <Transform id="Joint1" DEF="Joint1"
+                     translation="0 0 110" rotation="0 1 0 0">
+                     <Inline url='"Arm_0.x3d"'></Inline>
+              <Transform id="Joint2" DEF="Joint2"
+                            translation="110 44 125" rotation="0 0 1 0">
+                            <Inline url='"Arm_1.x3d"'></Inline>
+                     <Transform id="Joint3" DEF="Joint3"
+                            translation="0 70 390" rotation="0 0 1 0">
+                            <Inline url='"Arm_2.x3d"'></Inline>
+                            <Transform id="Joint4" DEF="Joint4"
+                                   translation="373 -94 81" rotation="1 0 0 0">
+                                   <Inline url='"Arm_3.x3d"'></Inline>
+                                   <Transform id="Joint5" DEF="Joint5"
+                                          translation="79 0 0" rotation="0 0 1 0">
+                                          <Inline url='"Arm_4.x3d"'></Inline>
+
+                                          <Transform id="Joint6" DEF="Joint6"
+                                                 translation="77 0 0" rotation="1 0 0 0">
+                                                 <Inline url='"Arm_5.x3d"'></Inline>
+                                          </Transform>
+                                   </Transform>
+                            </Transform>
+                                          
+                     </Transform>
+              </Transform>
+       </Transform>
+</Transform>

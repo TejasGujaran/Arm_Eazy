@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "model_paths": {
+    "BaseTransform": "./Fanuc_R-2000iC_165F/Arm_Base.x3d",
+    "Joint1": "./Fanuc_R-2000iC_165F/Arm_0.x3d",
+    "Joint2": "./Fanuc_R-2000iC_165F/Arm_1.x3d",
+    "Joint3": "./Fanuc_R-2000iC_165F/Arm_2.x3d",
+    "Joint4": "./Fanuc_R-2000iC_165F/Arm_3.x3d",
+    "Joint5": "./Fanuc_R-2000iC_165F/Arm_4.x3d",
+    "Joint6": "./Fanuc_R-2000iC_165F/Arm_5.x3d",
+    "Ik_bone": ""
+  },
+  "translations_mm": {
+    "BaseTransform": [
+      0,
+      0,
+      0
+    ],
+    "Joint1": [
+      0,
+      0,
+      110
+    ],
+    "Joint2": [
+      110,
+      44,
+      125
+    ],
+    "Joint3": [
+      0,
+      70,
+      390
+    ],
+    "Joint4": [
+      373,
+      -94,
+      81
+    ],
+    "Joint5": [
+      79,
+      0,
+      0
+    ],
+    "Joint6": [
+      77,
+      0,
+      0
+    ],
+    "Ik_bone": [
+      100,
+      0,
+      0
+    ]
+  },
+  "joint_limits_deg": {
+    "j1": [
+      -185,
+      185
+    ],
+    "j2": [
+      -50,
+      70
+    ],
+    "j3": [
+      -150,
+      70
+    ],
+    "j4": [
+      -360,
+      360
+    ],
+    "j5": [
+      -125,
+      125
+    ],
+    "j6": [
+      -360,
+      360
+    ]
+  },
+  "joint_axes": {
+    "BaseTransform": [
+      0,
+      0,
+      0
+    ],
+    "Joint1": [
+      0,
+      0,
+      1
+    ],
+    "Joint2": [
+      0,
+      1,
+      0
+    ],
+    "Joint3": [
+      0,
+      1,
+      0
+    ],
+    "Joint4": [
+      1,
+      0,
+      0
+    ],
+    "Joint5": [
+      0,
+      1,
+      0
+    ],
+    "Joint6": [
+      1,
+      0,
+      0
+    ]
+  }
+}

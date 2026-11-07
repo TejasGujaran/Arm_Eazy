@@ -1,0 +1,742 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Arm Config Editor</title>
+<style>
+body { font-family: system-ui, Arial, sans-serif; margin: 20px; }
+h1 { margin-bottom: 10px; }
+h2 { margin-top: 20px; }
+table { border-collapse: collapse; width: 100%; max-width: 1100px; }
+th, td { border: 1px solid #ddd; padding: 8px; }
+th { background: #f5f5f5; }
+input[type="number"] { width: 120px; }
+input[type="text"] { width: 100%; }
+button { padding: 10px 14px; margin-top: 15px; cursor: pointer; }
+.ok { color: green; }
+.err { color: red; }
+.warn { color: #b8860b; }
+
+/* Toggle switch styles */
+.toggle-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 80px;
+  height: 28px;
+  flex-shrink: 0;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #4a90d9;
+  border-radius: 28px;
+  transition: background 0.25s;
+}
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  height: 22px;
+  width: 22px;
+  left: 3px;
+  top: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.25s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.toggle-switch input:checked + .toggle-slider {
+  background: #e07b30;
+}
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(52px);
+}
+.toggle-label {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: #555;
+  min-width: 60px;
+}
+</style>
+</head>
+<body>
+
+<p><a href="../index.html">&larr; Back</a></p>
+
+<h2>Load Existing Config</h2>
+<div style="margin-bottom:15px;">
+  <input type="file" id="loadConfigFile" accept="application/json,.json,.zip,application/zip">
+  <button id="loadBtn">Load Config</button>
+</div>
+
+
+<h1>Arm Configuration Editor</h1>
+
+<h2>X3D Model File Paths</h2>
+<p style="font-size:.9em;color:#555;max-width:1100px">
+  Paths are relative to <code>frontend/pages/</code>, e.g. <code>../Kuka_KR_4_R600/Arm_0.x3d</code> for models in the repo.
+  For models on your PC only the file name matters: in the twin, load this config together with its
+  .x3d files, as a .zip, or with “Choose Folder”.
+</p>
+<table id="modelTable">
+<thead>
+<tr><th>Part</th><th>X3D File Path</th></tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<h2>Translations</h2>
+<table id="translationsTable">
+<thead>
+<tr><th>Transform</th><th>X</th><th>Y</th><th>Z</th></tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<h2>Joint Movement</h2>
+<table id="axesTable">
+  <thead>
+    <tr><th>Joint</th><th>Axis X</th><th>Axis Y</th><th>Axis Z</th><th>Type</th><th>Scale (mm / unit)</th></tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+
+<h2>Joint Limits (deg)</h2>
+<table id="limitsTable">
+<thead>
+<tr><th>Joint</th><th>Min</th><th>Max</th></tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<h2>Output File Settings</h2>
+<table>
+  <thead>
+    <tr><th>Setting</th><th>Value</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Output File Name</td>
+      <td>
+        <input type="text" id="outputFileName" value="arm_config">
+      </td>
+    </tr>
+    <tr>
+      <td>Output Format</td>
+      <td>
+        <select id="outputFormat">
+          <option value="zip" selected>ZIP — config + model files (load it in the twin as one file)</option>
+          <option value="json">JSON — config only</option>
+        </select>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<button id="saveBtn">Save (Download)</button>
+<button id="resetBtn">Reset Defaults</button>
+
+<p id="status"></p>
+
+<script>
+
+// Fixed sets of keys the UI is built around.
+const PARTS = [
+  "BaseTransform","Joint1","Joint2","Joint3","Joint4","Joint5","Joint6","Ik_bone"
+];
+const JOINTS = ["j1","j2","j3","j4","j5","j6"];
+const AXIS_KEYS = ["BaseTransform","Joint1","Joint2","Joint3","Joint4","Joint5","Joint6"];
+
+// Used only if config/default_config.json can't be reached. Same robot as the
+// built-in scene in twin.html (KUKA KR 4 R600), with paths that exist in the
+// repo — a safety net, not a second source of truth.
+const FALLBACK_CONFIG = {
+  schema_version: 1,
+  model_paths: {
+    BaseTransform: "../Kuka_KR_4_R600/Arm_Base.x3d", Joint1: "../Kuka_KR_4_R600/Arm_0.x3d",
+    Joint2: "../Kuka_KR_4_R600/Arm_1.x3d", Joint3: "../Kuka_KR_4_R600/Arm_2.x3d",
+    Joint4: "../Kuka_KR_4_R600/Arm_3.x3d", Joint5: "../Kuka_KR_4_R600/Arm_4.x3d",
+    Joint6: "../Kuka_KR_4_R600/Arm_5.x3d", Ik_bone: ""
+  },
+  translations_mm: {
+    BaseTransform: [0,0,0], Joint1: [0,0,187], Joint2: [0,0,138],
+    Joint3: [0,0,290], Joint4: [175,0,20], Joint5: [140,0,0],
+    Joint6: [60,0,0], Ik_bone: [100,0,0]
+  },
+  joint_limits_deg: {
+    j1: [-170,170], j2: [-100,120], j3: [-190,60],
+    j4: [-185,185], j5: [-120,120], j6: [-350,350]
+  },
+  joint_axes: {
+    BaseTransform: [0,0,1], Joint1: [0,0,1], Joint2: [0,1,0],
+    Joint3: [0,1,0], Joint4: [1,0,0], Joint5: [0,1,0], Joint6: [1,0,0]
+  },
+  joint_type: {
+    BaseTransform: "rotate", Joint1: "rotate", Joint2: "rotate",
+    Joint3: "rotate", Joint4: "rotate", Joint5: "rotate", Joint6: "rotate"
+  }
+};
+
+let DEFAULT_CONFIG = null;   // from config/default_config.json (or the fallback)
+let ZIP_MODELS     = [];     // .x3d files inside the loaded zip: [{ name, zipPath }]
+let ZIP_NAME       = "";
+let ZIP_FILES      = [];     // every file of the loaded zip (File objects with .zipPath)
+let ZIP_CONFIG_PATH = "";    // where the config sat inside the loaded zip
+let PICKED_FILES   = new Map();   // lower-case name → File picked with "Browse…"
+let BASE_CONFIG    = null;   // the config being edited — readConfig() starts from
+                             // THIS, so fields the editor doesn't show are kept
+
+const jointKeyOf = (name) => "j" + name.replace("Joint", "");   // "Joint3" → "j3"
+const esc = (v) => String(v ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+
+// Fill gaps with neutral values so a partial config can still be shown.
+// Returns [config, list of filled-in fields].
+function normalize(cfg) {
+  const c = structuredClone(cfg || {}), filled = [];
+  const need = (sec, key, val) => {
+    c[sec] = c[sec] || {};
+    if (c[sec][key] === undefined) { c[sec][key] = val; filled.push(`${sec}.${key}`); }
+  };
+  PARTS.forEach(p => { need("model_paths", p, ""); need("translations_mm", p, [0,0,0]); });
+  AXIS_KEYS.forEach(n => { need("joint_axes", n, [0,0,1]); });
+  JOINTS.forEach(j => need("joint_limits_deg", j, [-180,180]));
+  c.joint_type  = c.joint_type  || {};
+  c.joint_scale = c.joint_scale || {};
+  // report only what ik.py actually needs (empty model paths are flagged on save)
+  return [c, filled.filter(f => !f.startsWith("model_paths.") && f !== "joint_axes.BaseTransform")];
+}
+
+function render(config) {
+
+  // MODEL PATHS
+  const mBody = document.querySelector("#modelTable tbody");
+  mBody.innerHTML = "";
+  PARTS.forEach(part => {
+    const tr = document.createElement("tr");
+
+    const tdName = document.createElement("td");
+    tdName.textContent = part;
+
+    const tdInput = document.createElement("td");
+    tdInput.style.display = "flex";
+    tdInput.style.gap = "6px";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = config.model_paths[part] ?? "";
+
+    // Folder part of the current path is kept; only the file name changes
+    // (the twin matches local files by name).
+    const withName = (fileName, fallbackPath) => {
+      const old = input.value.replace(/\\/g, "/");
+      return old.includes("/") ? old.slice(0, old.lastIndexOf("/") + 1) + fileName : (fallbackPath || fileName);
+    };
+
+    if (ZIP_MODELS.length) {
+      // Zip loaded: choose from the model files inside it
+      const sel = document.createElement("select");
+      sel.title = `Model files in ${ZIP_NAME}`;
+      sel.style.minWidth = "200px";
+      sel.add(new Option(`— choose from ${ZIP_NAME} —`, ""));
+      sel.add(new Option("(no model)", "__none__"));
+      ZIP_MODELS.forEach((m, i) => sel.add(new Option(m.zipPath, String(i))));
+      const current = (input.value.replace(/\\/g, "/").split("/").pop() || "").toLowerCase();
+      const match = ZIP_MODELS.findIndex(m => m.name.toLowerCase() === current);
+      if (match >= 0) sel.value = String(match);
+      sel.addEventListener("change", () => {
+        if (sel.value === "__none__") input.value = "";
+        else if (sel.value !== "") { const m = ZIP_MODELS[+sel.value]; input.value = withName(m.name, m.zipPath); }
+      });
+      // typing a path by hand → show whether it matches a file in the zip
+      input.addEventListener("input", () => {
+        const n = (input.value.replace(/\\/g, "/").split("/").pop() || "").toLowerCase();
+        const i = ZIP_MODELS.findIndex(m => m.name.toLowerCase() === n);
+        sel.value = input.value === "" ? "__none__" : i >= 0 ? String(i) : "";
+      });
+      tdInput.append(input, sel);
+    } else {
+      // No zip: "Browse…" picks an .x3d file from the PC
+      const pick = document.createElement("input");
+      pick.type = "file"; pick.accept = ".x3d"; pick.style.display = "none";
+      const browse = document.createElement("button");
+      browse.type = "button"; browse.textContent = "Browse…";
+      browse.style.margin = "0"; browse.style.padding = "4px 10px";
+      browse.addEventListener("click", () => pick.click());
+      pick.addEventListener("change", () => {
+        const f = pick.files && pick.files[0];
+        if (!f) return;
+        input.value = withName(f.name);
+        PICKED_FILES.set(f.name.toLowerCase(), f);     // goes into the output zip
+        pick.value = "";
+      });
+      tdInput.append(input, browse, pick);
+    }
+    tr.appendChild(tdName);
+    tr.appendChild(tdInput);
+    mBody.appendChild(tr);
+  });
+
+  // TRANSLATIONS
+  const tBody = document.querySelector("#translationsTable tbody");
+  tBody.innerHTML = "";
+  PARTS.forEach(part => {
+    const tr = document.createElement("tr");
+    const [x,y,z] = config.translations_mm[part] || [0,0,0];
+
+    tr.innerHTML = `
+      <td>${part}</td>
+      <td><input type="number" value="${esc(x)}" step="any"></td>
+      <td><input type="number" value="${esc(y)}" step="any"></td>
+      <td><input type="number" value="${esc(z)}" step="any"></td>
+    `;
+    tBody.appendChild(tr);
+  });
+
+  // JOINT MOVEMENT (axes + type + scale)
+  const aBody = document.querySelector("#axesTable tbody");
+  aBody.innerHTML = "";
+  AXIS_KEYS.forEach(name => {
+    const [ax, ay, az] = (config.joint_axes && config.joint_axes[name]) ? config.joint_axes[name] : [0,0,1];
+    const isTranslate = (config.joint_type && config.joint_type[name]) === "translate";
+    const isBase = name === "BaseTransform";
+    const scale = isBase ? "" : (config.joint_scale && config.joint_scale[jointKeyOf(name)]) ?? 1;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${name}</td>
+      <td><input type="number" value="${esc(ax)}" step="any"></td>
+      <td><input type="number" value="${esc(ay)}" step="any"></td>
+      <td><input type="number" value="${esc(az)}" step="any"></td>
+      <td>
+        <div class="toggle-wrap">
+          <label class="toggle-switch">
+            <input type="checkbox" ${isTranslate ? "checked" : ""}>
+            <span class="toggle-slider"></span>
+          </label>
+          <span class="toggle-label">${isTranslate ? "Translate" : "Rotate"}</span>
+        </div>
+      </td>
+      <td>${isBase ? "—" : `<input type="number" class="scale" value="${esc(scale)}" step="any" title="mm per slider unit (translate joints only)">`}</td>
+    `;
+
+    // Update label text live when toggled; scale only matters for translate
+    const checkbox = tr.querySelector("input[type=checkbox]");
+    const label = tr.querySelector(".toggle-label");
+    const scaleIn = tr.querySelector("input.scale");
+    const sync = () => {
+      label.textContent = checkbox.checked ? "Translate" : "Rotate";
+      if (scaleIn) scaleIn.disabled = !checkbox.checked;
+    };
+    checkbox.addEventListener("change", sync);
+    sync();
+
+    aBody.appendChild(tr);
+  });
+
+
+  // LIMITS
+  const lBody = document.querySelector("#limitsTable tbody");
+  lBody.innerHTML = "";
+  JOINTS.forEach(j => {
+    const [min,max] = config.joint_limits_deg[j] || [-180,180];
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${j}</td>
+      <td><input type="number" value="${esc(min)}" step="any"></td>
+      <td><input type="number" value="${esc(max)}" step="any"></td>
+    `;
+    lBody.appendChild(tr);
+  });
+}
+
+function readConfig() {
+  const config = structuredClone(BASE_CONFIG);   // keeps fields the editor doesn't show
+
+  // Model paths
+  config.model_paths = config.model_paths || {};
+  document.querySelectorAll("#modelTable tbody tr").forEach((row,i)=>{
+    const part = PARTS[i];
+    config.model_paths[part] = row.querySelector("input[type=text]").value.trim();
+  });
+
+  // Translations
+  config.translations_mm = config.translations_mm || {};
+  document.querySelectorAll("#translationsTable tbody tr").forEach((row,i)=>{
+    const part = PARTS[i];
+    const inputs = row.querySelectorAll("input");
+    config.translations_mm[part] = [
+      Number(inputs[0].value),
+      Number(inputs[1].value),
+      Number(inputs[2].value)
+    ];
+  });
+
+  // Joint movement (axes + type + scale)
+  config.joint_axes = {};
+  config.joint_type = {};
+  const oldScale = config.joint_scale || {};
+  config.joint_scale = {};
+  document.querySelectorAll("#axesTable tbody tr").forEach((row, i) => {
+    const name = AXIS_KEYS[i];
+    const numInputs = row.querySelectorAll("input[type=number]:not(.scale)");
+    const checkbox = row.querySelector("input[type=checkbox]");
+    const scaleIn = row.querySelector("input.scale");
+    config.joint_axes[name] = [
+      Number(numInputs[0].value),
+      Number(numInputs[1].value),
+      Number(numInputs[2].value)
+    ];
+    config.joint_type[name] = checkbox.checked ? "translate" : "rotate";
+    if (scaleIn) {
+      const k = jointKeyOf(name);
+      if (checkbox.checked) config.joint_scale[k] = Number(scaleIn.value);
+      else if (oldScale[k] !== undefined) config.joint_scale[k] = oldScale[k];
+    }
+  });
+  if (!Object.keys(config.joint_scale).length) delete config.joint_scale;
+
+  // Limits
+  config.joint_limits_deg = config.joint_limits_deg || {};
+  document.querySelectorAll("#limitsTable tbody tr").forEach((row,i)=>{
+    const joint = JOINTS[i];
+    const inputs = row.querySelectorAll("input");
+    config.joint_limits_deg[joint] = [
+      Number(inputs[0].value),
+      Number(inputs[1].value)
+    ];
+  });
+
+  return config;
+}
+
+// What ik.py / the twin need. Errors block saving, warnings don't.
+function validate(cfg) {
+  const errors = [], warnings = [];
+  const finite = (v) => Array.isArray(v) && v.every(Number.isFinite);
+  PARTS.forEach(p => { if (!finite(cfg.translations_mm[p])) errors.push(`Translation of ${p} is not a number.`); });
+  AXIS_KEYS.slice(1).forEach(n => {
+    const a = cfg.joint_axes[n];
+    if (!finite(a)) errors.push(`Axis of ${n} is not a number.`);
+    else if (Math.hypot(...a) === 0) errors.push(`Axis of ${n} is 0 0 0 — it needs a direction.`);
+    const k = jointKeyOf(n);
+    if (cfg.joint_type[n] === "translate" && cfg.joint_scale && !(cfg.joint_scale[k] > 0 || cfg.joint_scale[k] < 0))
+      errors.push(`Scale of ${n} must not be 0 for a translate joint.`);
+  });
+  JOINTS.forEach(j => {
+    const [lo, hi] = cfg.joint_limits_deg[j];
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) errors.push(`Limits of ${j} are not numbers.`);
+    else if (lo >= hi) errors.push(`Limits of ${j}: min (${lo}) must be smaller than max (${hi}).`);
+  });
+  PARTS.slice(0, 7).forEach(p => {
+    const path = cfg.model_paths[p] || "";
+    if (!path) warnings.push(`${p} has no model file.`);
+    else if (/^[a-zA-Z]:[\\/]|^file:/i.test(path))
+      warnings.push(`${p} uses a path on your PC — in the twin, load this config together with its .x3d files, a .zip, or the folder.`);
+  });
+  return { errors, warnings };
+}
+
+// File name without folder, illegal characters or .json/.zip extension
+function _stem(name) {
+  name = String(name || "").split(/[\\/]/).pop().trim().replace(/\.(json|zip)$/i, "");
+  name = name.replace(/[<>:"/\\|?*]+/g, "");
+  return name || "arm_config";
+}
+
+// ==========================
+// ZIP WRITER (no library: CompressionStream, falls back to "stored")
+// ==========================
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; }
+  return t;
+})();
+function crc32(d) { let c = 0xFFFFFFFF; for (let i = 0; i < d.length; i++) c = CRC_TABLE[(c ^ d[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+
+async function _deflateRaw(d) {
+  if (typeof CompressionStream === "undefined") return null;
+  try {
+    const s = new Blob([d]).stream().pipeThrough(new CompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(s).arrayBuffer());
+  } catch { return null; }
+}
+
+// entries: [{ path, data: Uint8Array }]
+async function buildZip(entries) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  const now = new Date();
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  let offset = 0;
+  for (const e of entries) {
+    const name = enc.encode(e.path), crc = crc32(e.data);
+    let method = 0, body = e.data;
+    const z = await _deflateRaw(e.data);
+    if (z && z.length < e.data.length) { method = 8; body = z; }
+
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true);   // UTF-8 names
+    lh.setUint16(8, method, true); lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, body.length, true); lh.setUint32(22, e.data.length, true);
+    lh.setUint16(26, name.length, true);
+    parts.push(new Uint8Array(lh.buffer), name, body);
+
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+    ch.setUint16(10, method, true); ch.setUint16(12, dosTime, true); ch.setUint16(14, dosDate, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, body.length, true); ch.setUint32(24, e.data.length, true);
+    ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), name);
+    offset += 30 + name.length + body.length;
+  }
+  const cdSize = central.reduce((n, a) => n + a.length, 0);
+  const eo = new DataView(new ArrayBuffer(22));
+  eo.setUint32(0, 0x06054b50, true); eo.setUint16(8, entries.length, true); eo.setUint16(10, entries.length, true);
+  eo.setUint32(12, cdSize, true); eo.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, new Uint8Array(eo.buffer)], { type: "application/zip" });
+}
+
+function downloadBlob(blob, fileName) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);   // give the download time to start
+}
+
+// Output zip: the edited config + the loaded zip's files (minus its old
+// config) + files picked with "Browse…". Folder layout of the zip is kept.
+async function buildOutputZip(config, stem) {
+  const files = new Map();                                   // path in zip → Uint8Array
+  const folder = ZIP_CONFIG_PATH.includes("/") ? ZIP_CONFIG_PATH.slice(0, ZIP_CONFIG_PATH.lastIndexOf("/") + 1) : "";
+  for (const f of ZIP_FILES) {
+    if (f.zipPath === ZIP_CONFIG_PATH) continue;             // replaced by the edited config
+    files.set(f.zipPath, new Uint8Array(await f.arrayBuffer()));
+  }
+  const inZip = new Set([...files.keys()].map(p => p.split("/").pop().toLowerCase()));
+  for (const [name, f] of PICKED_FILES) {
+    if (!inZip.has(name)) { files.set(folder + f.name, new Uint8Array(await f.arrayBuffer())); inZip.add(name); }
+  }
+  const cfgPath = folder + stem + ".json";
+  files.set(cfgPath, new TextEncoder().encode(JSON.stringify(config, null, 2)));
+
+  // model paths whose file is not in the zip (fine for repo models served by the server)
+  const notIncluded = PARTS.map(p => config.model_paths[p]).filter(Boolean)
+    .map(p => p.replace(/\\/g, "/").split("/").pop()).filter(n => !inZip.has(n.toLowerCase()));
+
+  const blob = await buildZip([...files].map(([path, data]) => ({ path, data })));
+  const models = [...files.keys()].filter(p => /\.x3d$/i.test(p)).length;
+  return { blob, models, notIncluded: [...new Set(notIncluded)] };
+}
+
+function setStatus(cls, lines) {
+  const el = document.getElementById("status");
+  el.innerHTML = "";
+  (Array.isArray(lines) ? lines : [lines]).forEach(t => {
+    const span = document.createElement("div");
+    span.className = cls; span.textContent = t;
+    el.appendChild(span);
+  });
+}
+
+
+
+document.getElementById("saveBtn").addEventListener("click", async () => {
+  const cfg = readConfig();
+  const { errors, warnings } = validate(cfg);
+  if (errors.length) return setStatus("err", ["Not saved — please fix:", ...errors]);
+
+  const stem = _stem(document.getElementById("outputFileName").value);
+  const format = document.getElementById("outputFormat").value;
+  const notes = [];
+  try {
+    if (format === "zip") {
+      const { blob, models, notIncluded } = await buildOutputZip(cfg, stem);
+      downloadBlob(blob, stem + ".zip");
+      setStatus("ok", `Downloaded ${stem}.zip (config + ${models} model file${models === 1 ? "" : "s"})`);
+      if (notIncluded.length) notes.push(`Not in the zip: ${notIncluded.join(", ")} — fine for models that are in the repo; ` +
+                                         `otherwise pick them with “Browse…” or load a zip that contains them.`);
+      warnings.filter(w => !/path on your PC/.test(w)).forEach(w => notes.push(w));   // a zip carries its own files
+    } else {
+      downloadBlob(new Blob([JSON.stringify(cfg, null, 2)], { type: "application/json" }), stem + ".json");
+      setStatus("ok", `Downloaded ${stem}.json`);
+      notes.push(...warnings);
+    }
+  } catch (e) {
+    return setStatus("err", "Could not create the file: " + e.message);
+  }
+  notes.forEach(w => {
+    const d = document.createElement("div"); d.className = "warn"; d.textContent = "Note: " + w;
+    document.getElementById("status").appendChild(d);
+  });
+});
+
+document.getElementById("resetBtn").addEventListener("click",()=>{
+  BASE_CONFIG = structuredClone(DEFAULT_CONFIG);
+  ZIP_MODELS = []; ZIP_NAME = ""; ZIP_FILES = []; ZIP_CONFIG_PATH = ""; PICKED_FILES = new Map();
+  document.getElementById("outputFileName").value = "arm_config";
+  render(structuredClone(BASE_CONFIG));
+  setStatus("ok", "Defaults restored");
+});
+
+// ==========================
+// LOAD DEFAULT CONFIG (shared file — single source of truth)
+// ==========================
+
+async function loadDefaultConfig() {
+  try {
+    const res = await fetch("../../config/default_config.json");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    DEFAULT_CONFIG = normalize(await res.json())[0];
+  } catch (err) {
+    console.warn("Could not load config/default_config.json, using built-in fallback:", err.message);
+    DEFAULT_CONFIG = structuredClone(FALLBACK_CONFIG);
+    setStatus("warn", "Could not reach config/default_config.json — using built-in defaults (KUKA KR 4 R600). " +
+      "Open this page through a web server (bridge.py or the PFH site), not as a file.");
+  }
+  BASE_CONFIG = structuredClone(DEFAULT_CONFIG);
+  render(structuredClone(BASE_CONFIG));
+}
+
+// ==========================
+// ZIP SUPPORT — same reader as config_loader.js (no library)
+// ==========================
+async function unzipToFiles(zipFile) {
+  const buf = new Uint8Array(await zipFile.arrayBuffer());
+  const dv  = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 65557); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error(`${zipFile.name} is not a valid zip file.`);
+  const count = dv.getUint16(eocd + 10, true);
+  let offset  = dv.getUint32(eocd + 16, true);
+  if (offset === 0xffffffff) throw new Error("ZIP64 archives are not supported — please re-zip normally.");
+  const utf8 = new TextDecoder("utf-8"), out = [];
+  for (let n = 0; n < count; n++) {
+    if (dv.getUint32(offset, true) !== 0x02014b50) throw new Error("Corrupt zip (central directory).");
+    const flags = dv.getUint16(offset + 8, true), method = dv.getUint16(offset + 10, true);
+    const compSize = dv.getUint32(offset + 20, true);
+    const nameLen = dv.getUint16(offset + 28, true), extraLen = dv.getUint16(offset + 30, true);
+    const commLen = dv.getUint16(offset + 32, true), local = dv.getUint32(offset + 42, true);
+    const name = utf8.decode(buf.subarray(offset + 46, offset + 46 + nameLen));
+    offset += 46 + nameLen + extraLen + commLen;
+    if (name.endsWith("/") || name.startsWith("__MACOSX/") || /(^|\/)\./.test(name)) continue;
+    if (flags & 1) throw new Error(`"${name}" is password-protected — zip it without a password.`);
+    const start = local + 30 + dv.getUint16(local + 26, true) + dv.getUint16(local + 28, true);
+    const raw = buf.subarray(start, start + compSize);
+    let data;
+    if (method === 0) data = raw;
+    else if (method === 8) {
+      if (typeof DecompressionStream === "undefined") throw new Error("This browser cannot unpack zip files — please update it.");
+      const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      data = new Uint8Array(await new Response(stream).arrayBuffer());
+    } else throw new Error(`"${name}" uses an unsupported zip compression (method ${method}).`);
+    const f = new File([data], name.split("/").pop());
+    f.zipPath = name;
+    out.push(f);
+  }
+  return out;
+}
+
+async function _isZip(file) {
+  if (/\.zip$/i.test(file.name)) return true;
+  const head = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+  return head[0] === 0x50 && head[1] === 0x4b;            // "PK" — a zip with another extension
+}
+
+// From a zip: the config .json (prefer one that looks like a robot config)
+async function configFromZip(zipFile) {
+  const files = await unzipToFiles(zipFile);
+  const jsons = files.filter(f => /\.json$/i.test(f.name));
+  const models = files.filter(f => /\.x3d$/i.test(f.name)).map(f => ({ name: f.name, zipPath: f.zipPath }))
+                      .sort((a, b) => a.zipPath.localeCompare(b.zipPath, undefined, { numeric: true }));
+  let fallback = null;
+  for (const f of jsons) {
+    try {
+      const cfg = JSON.parse(await f.text());
+      if (cfg && typeof cfg === "object" && !Array.isArray(cfg)) {
+        if (cfg.translations_mm || cfg.joint_axes || cfg.model_paths) return { cfg, name: f.zipPath, models, files };
+        fallback = fallback || { cfg, name: f.zipPath, models, files };
+      }
+    } catch { /* not JSON, try next */ }
+  }
+  if (fallback) return fallback;
+  throw new Error(`${zipFile.name} contains no config .json` + (models.length ? ` (only ${models.length} model files)` : "") + ".");
+}
+
+// ==========================
+// LOAD CONFIG FROM FILE
+// ==========================
+
+async function loadConfigFromFile(file) {
+  try {
+    let cfg, shownName = file.name, saveName = file.name, models = [], zipFiles = [], cfgPath = "";
+    if (await _isZip(file)) {
+      const z = await configFromZip(file);
+      cfg = z.cfg; models = z.models; zipFiles = z.files; cfgPath = z.name;
+      shownName = `${z.name} from ${file.name}`;
+      saveName = z.name.split("/").pop();
+    } else {
+      try { cfg = JSON.parse(await file.text()); }
+      catch (e) { throw new Error(`${file.name} is not valid JSON (${e.message}).`); }
+    }
+    if (!cfg || typeof cfg !== "object" || Array.isArray(cfg)) {
+      throw new Error("Invalid JSON structure.");
+    }
+    const [normalized, filled] = normalize(cfg);
+    BASE_CONFIG = normalized;                      // keep everything the file contains
+    ZIP_MODELS = models;                           // [] for a plain .json → "Browse…" again
+    ZIP_NAME   = models.length ? file.name : "";
+    ZIP_FILES  = zipFiles;
+    ZIP_CONFIG_PATH = cfgPath;
+    PICKED_FILES = new Map();
+    render(structuredClone(BASE_CONFIG));
+    document.getElementById("outputFileName").value = _stem(zipFiles.length ? file.name : saveName);
+
+    if (filled.length) setStatus("warn", `Loaded ${shownName}, but it was missing ${filled.length} field(s) — ` +
+                                       `shown with neutral values: ${filled.join(", ")}`);
+    else setStatus("ok", `Loaded ${shownName} ✔`);
+    if (models.length) {
+      const d = document.createElement("div");
+      d.className = "ok";
+      d.textContent = `${models.length} model file(s) found in ${file.name} — choose them per part in the dropdowns. ` +
+                      `Save writes a new zip with the edited config and these models.`;
+      document.getElementById("status").appendChild(d);
+    }
+  } catch (err) {
+    setStatus("err", "Error loading file: " + err.message);
+  }
+}
+
+const _fileInput = document.getElementById("loadConfigFile");
+_fileInput.addEventListener("change", () => {          // load as soon as a file is picked
+  if (_fileInput.files && _fileInput.files[0]) loadConfigFromFile(_fileInput.files[0]);
+});
+document.getElementById("loadBtn").addEventListener("click", () => {
+  if (!_fileInput.files || !_fileInput.files[0]) {
+    setStatus("err", "Please select a JSON file first.");
+    return;
+  }
+  loadConfigFromFile(_fileInput.files[0]);
+});
+
+loadDefaultConfig();
+
+</script>
+</body>
+</html>

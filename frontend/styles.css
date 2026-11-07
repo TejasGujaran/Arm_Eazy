@@ -1,0 +1,75 @@
+body {
+  display: flex;
+  gap: 20px;
+  margin: 0;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+#controls {
+  width: 420px;
+}
+
+#scene {
+  flex: 1;
+}
+
+#scene x3d {
+  width: 100%;
+  height: calc(100vh - 20px);
+}
+
+/* ---- Landing page ---- */
+
+.landing-wrap {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  margin: 60px auto;
+  padding: 0 20px;
+  font-family: system-ui, Arial, sans-serif;
+}
+
+.landing-wrap h1 {
+  margin-bottom: 4px;
+}
+
+.landing-wrap > p {
+  color: #555;
+  margin-top: 0;
+}
+
+.landing-options {
+  display: flex;
+  gap: 20px;
+  margin-top: 30px;
+}
+
+.landing-card {
+  flex: 1;
+  display: block;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  text-decoration: none;
+  color: inherit;
+  background: #fafafa;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.landing-card:hover {
+  border-color: #4a90d9;
+  background: #f0f6fc;
+}
+
+.landing-card h2 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 1.1em;
+}
+
+.landing-card p {
+  margin: 0;
+  color: #555;
+  font-size: 0.9em;
+}

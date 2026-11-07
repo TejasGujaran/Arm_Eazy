@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "model_paths": {
+    "BaseTransform": "./Kuka_KR_4_R600/Arm_Base.x3d",
+    "Joint1": "./Kuka_KR_4_R600/Arm_0.x3d",
+    "Joint2": "./Kuka_KR_4_R600/Arm_1.x3d",
+    "Joint3": "./Kuka_KR_4_R600/Arm_2.x3d",
+    "Joint4": "./Kuka_KR_4_R600/Arm_3.x3d",
+    "Joint5": "./Kuka_KR_4_R600/Arm_4.x3d",
+    "Joint6": "./Kuka_KR_4_R600/Arm_5.x3d",
+    "Ik_bone": ""
+  },
+  "translations_mm": {
+    "BaseTransform": [
+      0,
+      0,
+      0
+    ],
+    "Joint1": [
+      0,
+      0,
+      187
+    ],
+    "Joint2": [
+      0,
+      0,
+      138
+    ],
+    "Joint3": [
+      0,
+      0,
+      290
+    ],
+    "Joint4": [
+      175,
+      0,
+      20
+    ],
+    "Joint5": [
+      140,
+      0,
+      0
+    ],
+    "Joint6": [
+      60,
+      0,
+      0
+    ],
+    "Ik_bone": [
+      100,
+      0,
+      0
+    ]
+  },
+  "joint_limits_deg": {
+    "j1": [
+      -170,
+      170
+    ],
+    "j2": [
+      -120,
+      120
+    ],
+    "j3": [
+      -200,
+      70
+    ],
+    "j4": [
+      -300,
+      300
+    ],
+    "j5": [
+      -130,
+      130
+    ],
+    "j6": [
+      -360,
+      360
+    ]
+  },
+  "joint_axes": {
+    "BaseTransform": [
+      0,
+      0,
+      1
+    ],
+    "Joint1": [
+      0,
+      0,
+      1
+    ],
+    "Joint2": [
+      0,
+      1,
+      0
+    ],
+    "Joint3": [
+      0,
+      1,
+      0
+    ],
+    "Joint4": [
+      1,
+      0,
+      0
+    ],
+    "Joint5": [
+      0,
+      1,
+      0
+    ],
+    "Joint6": [
+      1,
+      0,
+      0
+    ]
+  }
+}

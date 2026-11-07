@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Robot Controller - Joints 1–6</title>
+
+    <!-- X3DOM -->
+    <link rel="stylesheet" href="../libs/x3dom.css">
+    <script src="../libs/x3dom.js"></script>
+
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f0f0f0; }
+        #controls { background: #fff; padding: 10px; border-bottom: 1px solid #ccc; }
+        #controls > div { margin: 5px 0; }
+        #scene { padding: 10px; }
+        label { display: inline-block; width: 120px; }
+        label.rec-btn { width: auto; white-space: nowrap; }
+        /* Joint type badge */
+        .joint-type-badge {
+          display: inline-block;
+          font-size: 0.7em;
+          font-weight: 700;
+          letter-spacing: 0.04em;
+          padding: 2px 7px;
+          border-radius: 10px;
+          margin-left: 6px;
+          vertical-align: middle;
+          text-transform: uppercase;
+          user-select: none;
+        }
+        .joint-type-badge.rotate {
+          background: #dbeafe;
+          color: #1d4ed8;
+          border: 1px solid #93c5fd;
+        }
+        .joint-type-badge.translate {
+          background: #ffedd5;
+          color: #c2410c;
+          border: 1px solid #fdba74;
+        }
+    </style>
+
+	<link rel="stylesheet" href="../styles.css">
+
+</head>
+
+<body>
+
+
+<div id="controls">
+    <!--Config Set-->
+    <h3>Configuration</h3>
+    <div>
+      <label>Select Config:</label>
+      <input id="configFileInput" type="file" accept=".json,application/json,.zip,application/zip"
+        title="Config .json (plus its .x3d files), or one .zip containing both">
+    </div>
+
+
+    <h3>Joint Controls</h3>
+
+    <!-- Sliders now hold plain ids only — slider_adapter.js wires their
+         input events to RobotState.setJointValue(). No inline oninput. -->
+
+    <!-- Joint 1 -->
+    <div>
+        <label>Joint 1 (Z):</label>
+        <input id="j1" type="range" min="-170" max="170" value="0">
+        <span id="j1Angle">0°</span>
+        <span id="j1TypeBadge" class="joint-type-badge rotate">Rotate</span>
+    </div>
+
+    <!-- Joint 2 -->
+    <div>
+        <label>Joint 2 (Y):</label>
+        <input id="j2" type="range" min="-100" max="120" value="0">
+        <span id="j2Angle">0°</span>
+        <span id="j2TypeBadge" class="joint-type-badge rotate">Rotate</span>
+    </div>
+
+    <!-- Joint 3 -->
+    <div>
+        <label>Joint 3 (Y):</label>
+        <input id="j3" type="range" min="-190" max="60" value="0">
+        <span id="j3Angle">0°</span>
+        <span id="j3TypeBadge" class="joint-type-badge rotate">Rotate</span>
+    </div>
+
+    <!-- Joint 4 -->
+    <div>
+        <label>Joint 4 (X):</label>
+        <input id="j4" type="range" min="-185" max="185" value="0">
+        <span id="j4Angle">0°</span>
+        <span id="j4TypeBadge" class="joint-type-badge rotate">Rotate</span>
+    </div>
+
+    <!-- Joint 5 -->
+    <div>
+        <label>Joint 5 (Y):</label>
+        <input id="j5" type="range" min="-120" max="120" value="0">
+        <span id="j5Angle">0°</span>
+        <span id="j5TypeBadge" class="joint-type-badge rotate">Rotate</span>
+    </div>
+
+    <!-- Joint 6 -->
+    <div>
+        <label>Joint 6 (X):</label>
+        <input id="j6" type="range" min="-350" max="350" value="0">
+        <span id="j6Angle">0°</span>
+        <span id="j6TypeBadge" class="joint-type-badge rotate">Rotate</span>
+    </div>
+
+	    <h3>Home Position</h3>
+	<div>
+		<button onclick="setHome()">Set Home</button>
+		<button onclick="goHome()">Go Home</button>
+		<button onclick="defaultHome()">Default Home</button>
+
+	
+		<span id="homeStatus" style="margin-left:10px;"></span>
+
+	</div>
+
+
+		<h3>Gripper Position (World)</h3>
+	<div>
+	  <label>Gripper Pos X:</label>
+	  <input id="GPosx" type="text" readonly>
+	</div>
+	<div>
+	  <label>Gripper Pos Y:</label>
+	  <input id="GPosy" type="text" readonly>
+	</div>
+	<div>
+	  <label>Gripper Pos Z:</label>
+	  <input id="GPosz" type="text" readonly>
+	</div>
+
+
+
+
+  <h3>Inverse Kinematics </h3>
+  <div>
+    <label for="tx">Target X:</label>
+    <input id="tx" type="number" value="475">
+  </div>
+  <div>
+    <label for="ty">Target Y:</label>
+    <input id="ty" type="number" value="0">
+  </div>
+  <div>
+    <label for="tz">Target Z:</label>
+    <input id="tz" type="number" value="635">
+  </div>
+
+  <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
+    <label style="width:120px; font-size:0.85em; color:#555;">Orientation:</label>
+    <label>
+      <input type="checkbox" id="useOrientation">
+      <span style="font-size:0.85em; font-weight:600; color:#555;">Enable RPY</span>
+    </label>
+  </div>
+
+  <div id="rpyInputs" style="opacity:0.4; pointer-events:none; transition:opacity 0.2s;">
+    <div>
+      <label for="tRoll">Roll (°):</label>
+      <input id="tRoll" type="number" value="0" step="1">
+    </div>
+    <div>
+      <label for="tPitch">Pitch (°):</label>
+      <input id="tPitch" type="number" value="0" step="1">
+    </div>
+    <div>
+      <label for="tYaw">Yaw (°):</label>
+      <input id="tYaw" type="number" value="0" step="1">
+    </div>
+  </div>
+
+  <div style="margin-top:8px;">
+    <button onclick="solveIK()">Solve IK</button>
+    <span id="ikStatus" style="margin-left:10px;"></span>
+  </div>
+
+  <div id="achievedRPY" style="margin-top:4px; font-size:0.8em; color:#666; display:none;">
+    Achieved — Roll: <span id="achRoll">—</span>°
+    &nbsp;Pitch: <span id="achPitch">—</span>°
+    &nbsp;Yaw: <span id="achYaw">—</span>°
+  </div>
+
+	<h3>Gamepad</h3>
+	<div>
+	  <button id="connectGamepadBtn">Connect Gamepad</button>
+	  <button id="disconnectGamepadBtn">Disconnect</button>
+	  <span id="gpStatus"></span>
+	</div>
+
+	<div>
+	  <label>Position scale:</label>
+	  <input id="gpScalePos" type="number" value="10" step="1" style="width:60px;">
+	  <label style="margin-left:10px;">Rotation scale:</label>
+	  <input id="gpScaleRot" type="number" value="1" step="0.1" style="width:60px;">
+	  <button onclick="applyGamepadScales()" style="margin-left:10px;">Apply Scales</button>
+	  <span id="scaleStatus" style="margin-left:8px; font-size:0.85em; color:green;"></span>
+	</div>
+
+
+	<h3>Stored Positions</h3>
+
+	<div>
+	  <button onclick="addPosition()">Add Position</button>
+		<button onclick="playForward()">Play Forward</button>
+		<button onclick="playReverse()">Play Reverse</button>
+		<button onclick="stopPlayback()">Stop</button>
+		<button onclick="clearPositions()">Clear</button>
+		<span id="poseStatus"></span>
+
+		<label>Duration per segment (ms):</label>
+		<input id="animDuration" type="number" value="1000" min="50" step="50">
+
+	</div>
+</div>
+
+<div>
+
+  <!-- MOTION RECORDER -->
+  <div class="rec-panel">
+    <h3>⬤ Motion Recorder</h3>
+    <div class="rec-btn-row">
+      <button id="recStartBtn" class="rec-btn rec-start"
+              onclick="startRecording(); this.classList.add('recording');">
+        ⬤ Record
+      </button>
+      <button id="recStopBtn" class="rec-btn rec-stop" disabled
+              onclick="stopRecording(); document.getElementById('recStartBtn').classList.remove('recording');">
+        ◼ Stop &amp; Save
+      </button>
+    </div>
+    <div id="recStatus">Press Record, move the arm, then Stop &amp; Save to download JSON.</div>
+    
+  </div>
+
+  <!-- MOTION PLAYER -->
+  <div class="rec-panel" style="margin-top:10px;">
+    <h3>▶ Motion Player</h3>
+    <div class="rec-btn-row">
+      <label class="rec-btn rec-load" style="cursor:pointer;">
+        📂 Load Recording
+        <input type="file" accept=".json,application/json" style="display:none;"
+               onchange="loadRecording(this.files[0]);">
+      </label>
+    </div>
+    <div id="playerStatus">Load a saved recording JSON to begin.</div>
+    <canvas id="playerWaveform" onclick="onWaveformClick(event, this)" title="Click to seek"
+      style="display:block; width:100%; height:90px; ; border-radius:6px;background:#1a1a2e"></canvas>
+    <div id="playerControls">
+      <div class="player-row">
+        <button id="playerPlayBtn" class="player-btn" onclick="togglePlayback()">▶ Play</button>
+        <button class="player-btn" onclick="stopAndRewind()">⏹</button>
+        <input id="playerBar" type="range" min="0" max="1000" value="0"
+               oninput="onPlayerBarInput(this)" onchange="onPlayerBarChange(this)">
+        <span id="playerTime">0.00s / 0.00s</span>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+        <span style="font-size:0.7em;color:#8b8bbd;">Joints:</span>
+        <span style="font-size:0.7em;color:#e74c3c;">■ J1</span>
+        <span style="font-size:0.7em;color:#e67e22;">■ J2</span>
+        <span style="font-size:0.7em;color:#f1c40f;">■ J3</span>
+        <span style="font-size:0.7em;color:#2ecc71;">■ J4</span>
+        <span style="font-size:0.7em;color:#3498db;">■ J5</span>
+        <span style="font-size:0.7em;color:#9b59b6;">■ J6</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<div id="scene">
+    <x3d width="900px" height="600px">
+        <scene>
+            <!-- Camera -->
+            <viewpoint position="0 -1200 500"
+                       orientation="1 0 0 1.5"
+                       centerOfRotation="0 0 0"
+                       description="Main view"></viewpoint>
+
+            <!-- Lighting: keep the headlight, add a key light and a fill light -->
+            <NavigationInfo headlight="true" type='"EXAMINE" "ANY"'></NavigationInfo>
+            <DirectionalLight direction="-0.5 0.6 -1"  intensity="0.8" color="1 1 1"></DirectionalLight>
+            <DirectionalLight direction="0.6 -0.4 -0.5" intensity="0.4" color="1 1 1"></DirectionalLight>
+
+            <!-- === BASE TRANSFORM === -->
+            <Transform id="BaseTransform" DEF="BaseTransform"
+                       translation="0 0 0" rotation="0 0 0 0">
+                <Inline url='""'></Inline>
+
+                <!-- === JOINT 1 === -->
+                <Transform id="Joint1" DEF="Joint1"
+                           translation="0 0 187" rotation="0 0 1 0">
+                    <Inline url='""'></Inline>
+
+                    <!-- === JOINT 2 === -->
+                    <Transform id="Joint2" DEF="Joint2"
+                               translation="0 0 138" rotation="0 1 0 0">
+                        <Inline url='""'></Inline>
+
+                        <!-- === JOINT 3 === -->
+                        <Transform id="Joint3" DEF="Joint3"
+                                   translation="0 0 290" rotation="0 1 0 0">
+                            <Inline url='""'></Inline>
+
+                            <!-- === JOINT 4 === -->
+                            <Transform id="Joint4" DEF="Joint4"
+                                       translation="175 0 20" rotation="1 0 0 0">
+                                <Inline url='""'></Inline>
+
+                                <!-- === JOINT 5 === -->
+                                <Transform id="Joint5" DEF="Joint5"
+                                           translation="140 0 0" rotation="0 1 0 0">
+                                    <Inline url='""'></Inline>
+
+                                    <!-- === JOINT 6 === -->
+                                    <Transform id="Joint6" DEF="Joint6"
+                                               translation="60 0 0" rotation="1 0 0 0">
+                                        <Inline url='""'></Inline>
+										
+										<!-- === IK Co-ordinate axis == -->
+										<Transform id="Ik_bone" DEF="Ik_bone"
+											translation="100 0 0" rotation="0 0 1 0">
+											<!-- Gripper Off-Set (Yellow) -->
+											<Shape>
+											  <Appearance>
+												    <Material
+												      emissiveColor="1 1 0"
+												      diffuseColor="1 1 0"
+												      lighting="false"/>
+											  </Appearance>
+											  <Sphere radius="8"/>
+											</Shape>
+										</Transform>
+
+										
+                                    </Transform>
+
+                                </Transform>
+                            </Transform>
+                        </Transform>
+                    </Transform>
+                </Transform>
+            </Transform>
+			<Transform id="WorldMarker" translation="0 0 0" rotation="0 0 1 0">
+				<!-- X axis (red) -->
+				<Shape>
+				  <Appearance>
+					<Material emissiveColor="1 0 0" lighting="false"/>
+					<LineProperties linewidthScaleFactor="4"/>
+				  </Appearance>
+				  <LineSet vertexCount="2">
+					<Coordinate point="0 0 0, 60 0 0"/>
+				  </LineSet>
+				</Shape>
+
+
+				<!-- Y axis (green) -->
+				<Shape>
+				  <Appearance>
+					<Material emissiveColor="0 1 0" lighting="false"/>
+					<LineProperties linewidthScaleFactor="4"/>
+				  </Appearance>
+				  <LineSet vertexCount="2">
+					<Coordinate point="0 0 0, 0 60 0"/>
+				  </LineSet>
+				</Shape>
+
+				<!-- Z axis (blue) -->
+				<Shape>
+				  <Appearance>
+					<Material emissiveColor="0 0 1" lighting="false"/>
+					<LineProperties linewidthScaleFactor="4"/>
+				  </Appearance>
+				  <LineSet vertexCount="2">
+					<Coordinate point="0 0 0, 0 0 60"/>
+				  </LineSet>
+				</Shape>			
+			</Transform>
+			
+			<!-- Grid (generated by Python) -->
+			<Transform>
+			  <Inline url='"../grid.x3d"'/>
+			</Transform>
+
+
+
+        </scene>
+    </x3d>
+</div>
+
+<!-- =============================================================
+     SCRIPTS — load order matters.
+     core (SharedUtils, RobotState) → transport → config_loader →
+     adapters → kinematics.js (ES module, imported where needed)
+     ============================================================= -->
+
+<!-- Core: single sources of truth. Must load before anything below. -->
+<script src="../core/shared_utils.js"></script>
+<script src="../core/robot_state.js"></script>
+
+<!-- Transport: WebSocket connection to bridge_server.py -->
+<script src="../transport/robot_bridge.js"></script>
+
+<!-- Config loader: applies model paths/translations, delegates joints to
+     RobotState, pushes config to the backend, and auto-fetches
+     config/default_config.json on startup -->
+<script src="../config_loader.js"></script>
+
+<!-- Adapters -->
+<script src="../adapters/home_controller.js"></script>
+<script src="../adapters/slider_adapter.js"></script>
+<script src="../adapters/gamepad_bridge.js"></script>
+<script src="../adapters/armAnimation.js"></script>
+<script src="../adapters/motion_recorder.js"></script>
+
+<!-- Gripper world position readout (kinematics.js is an ES module) -->
+<script type="module">
+  import { getGPosXYZ } from "../core/kinematics.js";
+  window.getGPosXYZ = getGPosXYZ;
+
+  function update() {
+    const xyz = getGPosXYZ();
+    if (!xyz) return;
+    document.getElementById("GPosx").value = xyz.x.toFixed(2);
+    document.getElementById("GPosy").value = xyz.y.toFixed(2);
+    document.getElementById("GPosz").value = xyz.z.toFixed(2);
+  }
+
+  setInterval(update, 100);
+  update();
+</script>
+
+<script>
+// ── RPY toggle — enable/disable the RPY input fields ─────────────────────
+document.getElementById("useOrientation").addEventListener("change", function () {
+  const rpyDiv = document.getElementById("rpyInputs");
+  rpyDiv.style.opacity       = this.checked ? "1"    : "0.4";
+  rpyDiv.style.pointerEvents = this.checked ? "auto" : "none";
+});
+</script>
+
+<!-- End Effector Axis Visualization -->
+<script type="module">
+  import { getGPosXYZ } from "../core/kinematics.js";
+
+  const marker = document.getElementById("WorldMarker");
+
+  function updateWorldMarker() {
+    if (!marker) return;
+
+    const p = getGPosXYZ(); // {x,y,z} world coords of Ik_bone
+    if (!p) return;
+
+    marker.setAttribute("translation", `${p.x} ${p.y} ${p.z}`);
+
+    // Keep world-aligned (no rotation)
+    marker.setAttribute("rotation", "0 0 1 0");
+  }
+
+  // Update ~20 FPS (smooth enough, light CPU)
+  setInterval(updateWorldMarker, 50);
+  updateWorldMarker();
+</script>
+
+<script>
+window.addEventListener("load", function () {
+  ["playerWaveform"].forEach(function(id) {
+    var c = document.getElementById(id);
+    if (!c) return;
+    c.width  = c.offsetWidth  || 380;
+    c.height = c.offsetHeight || 90;
+  });
+});
+</script>
+
+
+</body>
+</html>
